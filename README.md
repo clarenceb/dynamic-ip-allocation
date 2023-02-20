@@ -68,7 +68,6 @@ az aks create -n $clusterName -g $resourceGroup -l $location \
     --service-cidr 10.0.1.64/26 \
     --dns-service-ip 10.0.1.74 \
     --generate-ssh-keys
-
 ```
 
 Add the Windows node pool using subnet 2 and the shared pod subnet:
@@ -89,6 +88,7 @@ Check the IPs allocated to the nodes and pods and other network configuration:
 
 ```sh
 az aks get-credentials -n $clusterName -g $resourceGroup
+kubectl config use-context aks-dynip-demo
 
 kubectl get node -o wide
 # 10.0.0.x  -> Linux nodes - linuxnp1 subnet (10.0.0.0/24)
@@ -165,7 +165,8 @@ Test connectivity from a node to a pod:
 
 ```sh
 # See: https://krew.sigs.k8s.io/docs/user-guide/quickstart/
-kubectl krew install sshjump
+kubectl krew install ssh-jump
+kubectl get node -o wide
 kubectl ssh-jump <choose-one-of-the-linux-nodes> -i ~/.ssh/id_rsa -u azureuser
 
 curl -i http://<ip-addr-of-windows-container>
