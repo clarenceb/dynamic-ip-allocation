@@ -67,6 +67,7 @@ az aks create -n $clusterName -g $resourceGroup -l $location \
     -k $aksVersion \
     --service-cidr 10.0.1.64/26 \
     --dns-service-ip 10.0.1.74 \
+    --enable-managed-identity \
     --generate-ssh-keys
 ```
 
@@ -107,13 +108,19 @@ az aks show -n $clusterName -g $resourceGroup --query networkProfile.dnsServiceI
 az aks nodepool show --cluster-name $clusterName -g $resourceGroup -n nodepool1 --query maxPods
 # 250
 
-az aks nodepool show --cluster-name $clusterName -g $resourceGroup -n winnp --query maxPods
+az aks nodepool show --cluster-name $clusterName -g $resourceGroup -n npwin --query maxPods
 # 250
 ```
 
 Get counts of available IPs in the subnets:
 
 ```sh
+podCidrIps() {
+    podIps=$(kubectl get pods -o json -A | jq -r '.items[] | select(.spec.hostNetwork != true) | .metadata.name' | wc -l)
+
+    echo $podIps
+}
+
 subnetAvailableIps() {
     subnet_name=$1
     vnet=$2
@@ -121,10 +128,17 @@ subnetAvailableIps() {
     resourceGroup=$4
 
     max_ip=$((2 ** (32-$netmask)-5))
-    used_ip=$(az network vnet subnet show -g $resourceGroup -n $subnet_name --vnet-name $vnet -o json | jq  ".ipConfigurations[].id" | wc -l)
+    ip_configuration_ids=$(az network vnet subnet show -g $resourceGroup -n $subnet_name --vnet-name $vnet -o json | jq  ".ipConfigurations[].id" 2>/dev/null)
+
+    if [[ $? == 0 ]]; then
+        used_ip=$(echo $ip_configuration_ids | tr " " "\n" | wc -l)
+    else
+        used_ip=$(podCidrIps)
+    fi
+
     available_ip=$(($max_ip - $used_ip))
 
-    echo "There are $available_ip IPs available in subnet: $subnet_name"
+    echo "$used_ip used IPs -> $available_ip out of $max_ip IPs available in subnet: $subnet_name"
 }
 
 subnetAvailableIps "linuxnp1" "$vnet" "24" "$resourceGroup"
