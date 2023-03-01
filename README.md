@@ -173,6 +173,10 @@ exit
 
 kubectl get pod -o wide -A | grep "10.4." | wc -l
 # 15
+
+export GREP_COLOR='1;37;41'
+kubectl get pod -A -o wide | grep --color -E '^.*10\.4\.0.*$|$'
+unset GREP_COLOR
 ```
 
 Test connectivity from a node to a pod:
